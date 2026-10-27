@@ -32,9 +32,9 @@
 
     #recordStatus { font-size: 14px; font-style: italic; margin: 6px 0 9px; }
 
-    .widget-frame { width: 235px; height: 112px; margin: 0 auto; background: #f5f5f5; padding: 6px; overflow: hidden; }
+    .widget-frame { width: 310px; max-width: 100%; height: 190px; margin: 0 auto; background: #f5f5f5; padding: 0; overflow: visible; }
 
-    #agentFrame { width: 223px; height: 100px; border: 0; display: block; }
+    #agentFrame { width: 100%; height: 100%; border: 0; display: block; }
 
     #stopPanel { margin-top: 10px; }
 
@@ -90,13 +90,13 @@
 
   <script>
 
-    // A small, centered iframe keeps the ElevenLabs floating launcher inside
+    // The iframe provides enough space for the floating ElevenLabs launcher.
 
-    // the widget area rather than at the bottom-right of the Canvas page.
+    // Do not clip or crop its internal UI.
 
     const agentFrame = document.getElementById('agentFrame');
 
-    agentFrame.srcdoc = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f5f5f5}</style></head><body><elevenlabs-convai agent-id="agent_0801m5z5my99fjzbsx5qwbwj2t2q"></elevenlabs-convai><script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"><\/script></body></html>`;
+    agentFrame.srcdoc = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;width:100%;height:100%;overflow:visible;background:#f5f5f5}</style></head><body><elevenlabs-convai agent-id="agent_0801m5z5my99fjzbsx5qwbwj2t2q"></elevenlabs-convai><script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"><\/script></body></html>`;
 
  
 

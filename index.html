@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Patient Call Simulation</title>
+
+  <style>
+
+    body { font-family: Arial, sans-serif; text-align: center; padding: 30px; }
+
+    .recorder { max-width: 560px; margin: auto; }
+
+    button { font-size: 16px; padding: 12px 20px; margin: 8px; cursor: pointer; }
+
+    #recordStatus { margin: 15px 0; font-weight: bold; }
+
+    #downloadArea { margin-top: 20px; display: none; }
+
+    audio { max-width: 100%; }
+
+    #elevenLabsArea { min-height: 180px; margin: 20px auto; }
+
+  </style>
+
+</head>
+
+<body>
+
+  <main class="recorder">
+
+    <h2>Patient Call Simulation</h2>
+
+    <p>Start recording, then begin the conversation with the patient.</p>
+
+    <button id="startRecording">● Start Recording</button>
+
+    <button id="stopRecording" disabled>■ Stop Recording</button>
+
+    <div id="recordStatus" role="status">Recording not started</div>
+
+    <div id="elevenLabsArea">
+
+      <elevenlabs-convai agent-id="YOUR_AGENT_ID"></elevenlabs-convai>
+
+    </div>
+
+    <div id="downloadArea">
+
+      <h3>Recording Complete</h3>
+
+      <audio id="recordingPlayback" controls></audio>
+
+      <p><a id="downloadRecording">Download Recording</a></p>
+
+    </div>
+
+  </main>
+
+ 
+
+  <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async
+
+          type="text/javascript"></script>
+
+  <script>
+
+    let mediaRecorder, microphoneStream, tabStream, audioContext;
+
+    let recordingDestination, recordedChunks = [], downloadUrl;
+
+    const startButton = document.getElementById('startRecording');
+
+    const stopButton = document.getElementById('stopRecording');
+
+    const status = document.getElementById('recordStatus');
+
+    const downloadArea = document.getElementById('downloadArea');
+
+ 
+
+    startButton.addEventListener('click', startRecording);
+
+    stopButton.addEventListener('click', stopRecording);
+
+ 
+
+    async function startRecording() {
+
+      startButton.disabled = true;
+
+      downloadArea.style.display = 'none';
+
+      try {
+
+        microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        audioContext = new AudioContext();
+
+        await audioContext.resume();
+
+        recordingDestination = audioContext.createMediaStreamDestination();
+
+        const mic = audioContext.createMediaStreamSource(microphoneStream);
+
+        mic.connect(recordingDestination);
+
+ 
+
+        // Optional: capture the agent's audio from this browser tab.
+
+        // In Chrome/Edge, select THIS TAB and enable "Share tab audio".
+
+        // If cancelled, recording continues with microphone audio only.
+
+        try {
+
+          tabStream = await navigator.mediaDevices.getDisplayMedia({
+
+            video: true, audio: true
+
+          });
+
+          if (tabStream.getAudioTracks().length) {
+
+            const tabAudio = audioContext.createMediaStreamSource(tabStream);
+
+            tabAudio.connect(recordingDestination);
+
+            status.textContent = 'Recording microphone and shared-tab audio';
+
+          } else {
+
+            status.textContent = 'Recording microphone only (tab audio not shared)';
+
+          }
+
+          // Video is required for the permission prompt but is NOT recorded.
+
+          tabStream.getVideoTracks().forEach(track => track.stop());
+
+        } catch (error) {
+
+          status.textContent = 'Recording microphone only (tab sharing skipped)';
+
+        }
+
+ 
+
+        recordedChunks = [];
+
+        const type = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+
+          ? 'audio/webm;codecs=opus' : '';
+
+        mediaRecorder = new MediaRecorder(
+
+          recordingDestination.stream, type ? { mimeType: type } : {}
+
+        );
+
+        mediaRecorder.ondataavailable = event => {
+
+          if (event.data && event.data.size) recordedChunks.push(event.data);
+
+        };
+
+        mediaRecorder.onstop = createRecordingDownload;
+
+        mediaRecorder.start(1000);
+
+        stopButton.disabled = false;
+
+      } catch (error) {
+
+        console.error(error);
+
+        status.textContent = 'Unable to record. Allow microphone access and use HTTPS.';
+
+        cleanup();
+
+        startButton.disabled = false;
+
+      }
+
+    }
+
+ 
+
+    function stopRecording() {
+
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+
+      cleanup();
+
+      stopButton.disabled = true;
+
+      startButton.disabled = false;
+
+      status.textContent = 'Recording stopped';
+
+    }
+
+ 
+
+    function cleanup() {
+
+      if (microphoneStream) microphoneStream.getTracks().forEach(t => t.stop());
+
+      if (tabStream) tabStream.getTracks().forEach(t => t.stop());
+
+      if (audioContext) audioContext.close().catch(console.error);
+
+      microphoneStream = null;
+
+      tabStream = null;
+
+      audioContext = null;
+
+    }
+
+ 
+
+    function createRecordingDownload() {
+
+      const mimeType = mediaRecorder.mimeType || 'audio/webm';
+
+      const blob = new Blob(recordedChunks, { type: mimeType });
+
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+
+      downloadUrl = URL.createObjectURL(blob);
+
+      document.getElementById('recordingPlayback').src = downloadUrl;
+
+      const link = document.getElementById('downloadRecording');
+
+      link.href = downloadUrl;
+
+      link.download = 'Patient-Call-Simulation.webm';
+
+      downloadArea.style.display = 'block';
+
+    }
+
+  </script>
+
+</body>
+
+</html>

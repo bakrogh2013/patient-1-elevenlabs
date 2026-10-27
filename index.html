@@ -84,7 +84,7 @@
 
     </div>
 
-    <p class="note">For both voices in Chrome or Edge, when prompted choose this browser tab and enable <strong>Share tab audio</strong>. If tab audio is not shared, the recording may contain only your microphone.</p>
+    <p class="note">In Chrome or Edge, click Start Recording, choose <strong>This Tab</strong>, enable <strong>Share tab audio</strong>, then allow microphone access. Recording will not start without tab audio. Test on the GitHub Pages site directly before using Canvas.</p>
 
   </main>
 
@@ -122,9 +122,55 @@
 
       downloadArea.style.display = 'none';
 
-      status.textContent = 'Requesting microphone access…';
+      stopButton.disabled = true;
+
+      status.textContent = 'Choose This Tab and enable Share tab audio.';
 
       try {
+
+        if (!navigator.mediaDevices?.getDisplayMedia || !navigator.mediaDevices?.getUserMedia) {
+
+          throw new Error('This browser does not support the required recording permissions.');
+
+        }
+
+        // IMPORTANT: Ask for tab capture FIRST, directly inside the click handler.
+
+        // Calling it after awaiting microphone permission can lose the required user activation.
+
+        tabStream = await navigator.mediaDevices.getDisplayMedia({
+
+          video: true,
+
+          audio: true,
+
+          preferCurrentTab: true,
+
+          selfBrowserSurface: 'include',
+
+          surfaceSwitching: 'exclude'
+
+        });
+
+        if (!tabStream.getAudioTracks().length) {
+
+          throw new Error('No tab audio was shared. Select This Tab and enable Share tab audio, then retry.');
+
+        }
+
+        const videoTrack = tabStream.getVideoTracks()[0];
+
+        const settings = videoTrack?.getSettings?.() || {};
+
+        if (settings.displaySurface && settings.displaySurface !== 'browser') {
+
+          throw new Error('Please share This Tab, not a window or the entire screen.');
+
+        }
+
+        // Keep the video track alive while recording; stopping it can terminate tab capture.
+
+        status.textContent = 'Tab audio connected. Allow microphone access…';
 
         microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -136,45 +182,7 @@
 
         audioContext.createMediaStreamSource(microphoneStream).connect(mixedDestination);
 
- 
-
-        // Browser tab audio is optional: canceling tab sharing still allows mic-only recording.
-
-        if (navigator.mediaDevices.getDisplayMedia) {
-
-          try {
-
-            status.textContent = 'Select this tab and turn on Share tab audio…';
-
-            tabStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true, preferCurrentTab: true });
-
-            if (tabStream.getAudioTracks().length) {
-
-              audioContext.createMediaStreamSource(tabStream).connect(mixedDestination);
-
-              status.textContent = '● Recording both voices (when tab audio is available)';
-
-            } else {
-
-              status.textContent = '● Recording microphone only — tab audio was not shared';
-
-            }
-
-            tabStream.getVideoTracks().forEach(track => track.stop());
-
-          } catch (e) {
-
-            status.textContent = '● Recording microphone only — tab sharing was skipped';
-
-          }
-
-        } else {
-
-          status.textContent = '● Recording microphone only';
-
-        }
-
- 
+        audioContext.createMediaStreamSource(tabStream).connect(mixedDestination);
 
         const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(type => MediaRecorder.isTypeSupported(type));
 
@@ -214,7 +222,15 @@
 
         };
 
+        videoTrack?.addEventListener('ended', () => {
+
+          if (recorder?.state === 'recording') stopButton.click();
+
+        });
+
         recorder.start(1000);
+
+        status.textContent = '● Recording microphone and shared tab audio';
 
         stopButton.disabled = false;
 
@@ -222,7 +238,7 @@
 
         console.error(error);
 
-        status.textContent = 'Could not start recording. Check microphone permission.';
+        status.textContent = error.message || 'Recording not started. Please retry.';
 
         cleanup();
 

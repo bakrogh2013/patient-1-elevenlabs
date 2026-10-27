@@ -26,6 +26,8 @@
 
     #elevenLabsArea { min-height: 180px; margin: 20px auto; }
 
+    elevenlabs-convai { display: block; }
+
   </style>
 
 </head>
@@ -46,7 +48,7 @@
 
     <div id="elevenLabsArea">
 
-      <elevenlabs-convai agent-id="YOUR_AGENT_ID"></elevenlabs-convai>
+      <elevenlabs-convai agent-id="agent_0801m5z5my99fjzbsx5qwbwj2t2q"></elevenlabs-convai>
 
     </div>
 
@@ -96,6 +98,8 @@
 
       downloadArea.style.display = 'none';
 
+      status.textContent = 'Requesting recording permissions…';
+
       try {
 
         microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -140,9 +144,9 @@
 
           }
 
-          // Video is required for the permission prompt but is NOT recorded.
+          // Keep the display stream active until Stop Recording is clicked.
 
-          tabStream.getVideoTracks().forEach(track => track.stop());
+          // Only audio is sent to MediaRecorder; video is not recorded.
 
         } catch (error) {
 
@@ -173,6 +177,12 @@
         mediaRecorder.onstop = createRecordingDownload;
 
         mediaRecorder.start(1000);
+
+        if (!status.textContent.startsWith('Recording')) {
+
+          status.textContent = 'Recording microphone only';
+
+        }
 
         stopButton.disabled = false;
 
